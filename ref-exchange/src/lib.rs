@@ -44,6 +44,7 @@ pub(crate) enum StorageKey {
     Shares { pool_id: u32 },
     Whitelist,
     Guardian,
+    AccountTokens {account_id: AccountId},
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Eq, PartialEq, Clone)]
@@ -133,7 +134,8 @@ impl Contract {
             for action in &actions {
                 for token in action.tokens() {
                     assert!(
-                        account.tokens.contains_key(&token)
+                        account.legacy_tokens.contains_key(&token) 
+                            || account.tokens.get(&token).is_some()
                             || self.whitelisted_tokens.contains(&token),
                         "{}",
                         // [AUDIT_05]
