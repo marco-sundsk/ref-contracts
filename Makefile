@@ -16,8 +16,14 @@ build-farming:
 	$(call setup_builder,${FARMING_BUILDER_NAME})
 	
 test-farming: build-farming
-	cd ${FARMING_DIR}
+	cd ${FARMING_DIR} && \
 	RUSTFLAGS='-C link-arg=-s' cargo test
+
+TEST_FILE ?= **
+LOGS ?=
+sandbox-farming:
+	cd sandbox-tests && \
+	NEAR_PRINT_LOGS=$(LOGS) npx near-workspaces-ava --timeout=2m __tests__/ref-farming-v2/$(TEST_FILE).ava.ts --verbose
 
 build-exchange:
 	$(call create_builder,${EXCHANGE_BUILDER_NAME},${EXCHANGE_DIR})
@@ -25,7 +31,7 @@ build-exchange:
 	$(call setup_builder,${EXCHANGE_BUILDER_NAME})
 	
 test-exchange: build-exchange
-	cd ${EXCHANGE_DIR}
+	cd ${EXCHANGE_DIR} && \
 	RUSTFLAGS='-C link-arg=-s' cargo test
 
 res:
