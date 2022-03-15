@@ -259,19 +259,55 @@ near call $REF_FARM withdraw_reward '{"token_id": "xxx", "amount": "100"}' --acc
 
 **Create New Farm**
 ```bash
-near call $REF_V2FARM create_simple_farm '{"terms": {"seed_id": "xxx", "reward_token": "xxx", "start_at": 0, "reward_per_session": "nnn", "session_interval": 60}}' --account_id=op.testnet --deposit=0.01 || true
+near call $REF_V2FARM create_simple_farm '{"terms": {"seed_id": "xxx", "reward_token": "xxx", "start_at": 0, "reward_per_session": "nnn", "session_interval": 60}}' --account_id=op.testnet --deposit=0.01
 ```
 Note:  
 - `start_at` the distribution start timestamp or 0 means to start distribute as long as the reward token is deposited into the farm,
 - `session_interval` the interval secs between distribution,
+- the `deposit` amount is to cover farm storage and 0.01 is enough,
 - will return farm_id of the created farm,
+- remeber to register farm contract to both seed token and reward token contract
+
+**Cancel Farm**
+
+```bash
+near call $REF_V2FARM cancel_farm '{"farm_id": "xxxx"}' --account_id=op.testnet
+```
+Note:
+- Only those farms haven't got any reward deposited can be cancelled.
+
+**Clean Farm**
+
+```bash
+near call $REF_V2FARM force_clean_farm '{"farm_id": "xxxx"}' --account_id=op.testnet
+```
+Note:
+- Only those farms have been ended more than `farm_expire_sec` secs can be cleaned,
+- the `farm_expire_sec` can only be adjust by owner of the contract.
+- can get current `farm_expire_sec` through `get_metadata` view method.
+```bash
+near view $REF_V2FARM get_metadata
+# possible response:
+{
+  version: '2.1.6',
+  owner_id: 'ref-dev.testnet',
+  operators: [],
+  farmer_count: '3',
+  farm_count: '32',
+  seed_count: '1',
+  reward_count: '9',
+  farm_expire_sec: 2592000
+}
+```
 
 **Modify Seed Minimum Amount of Deposit**
+
 ```bash
 near call $REF_V2FARM modify_seed_min_deposit '{"seed_id": "xxx", "min_deposit": "nnn"}' --account_id=op.testnet --depositYocto=1
 ```
 
 **Modify Default Seed Slash Rate**
+
 ```bash
 near call $REF_V2FARM modify_seed_slash_rate '{"slash_rate": nnn}' --account_id=op.testnet --depositYocto=1
 ```
@@ -290,6 +326,35 @@ near call $REF_V2FARM modify_cd_strategy_item '{"index": n, "lock_sec": nnn, "po
 ```bash
 near call $REF_V2FARM withdraw_seed_slashed '{"seed_id": "xxx"}' --account_id=op.testnet --depositYocto=1
 ```
+
+### Owner Authority
+
+**Pass Owner Authority**
+```bash
+near call $REF_V2FARM set_owner '{"owner_id": "xxx"}' --account_id=owner.testnet --depositYocto=1
+```
+
+**Manage Operators**
+```bash
+near call $REF_V2FARM extend_operators '{"operators": ["xxx", "yyy"]}' --account_id=owner.testnet --depositYocto=1
+near call $REF_V2FARM remove_operators '{"operators": ["xxx", "yyy"]}' --account_id=owner.testnet --depositYocto=1
+```
+
+**Adjust Farm Expire Seconds**
+```bash
+near call $REF_V2FARM modify_default_farm_expire_sec '{"farm_expire_sec": 2592000}' --account_id=owner.testnet --depositYocto=1
+```
+
+**Refund Seed Lostfound**  
+
+owner help to return those who lost seed when withdraw.
+```bash
+near call $REF_V2FARM return_seed_lostfound '{"sender_id": "xxx", "seed_id": "yyy", "amount": "nnn"}' --account_id=owner.testnet --depositYocto=1
+```
+Note:  
+- It's owner's responsibility to verify amount and seed id before calling,
+- Better to ensure the seed token has register the user `sender_id`.
+
 
 ## Developer Manual
 ---
