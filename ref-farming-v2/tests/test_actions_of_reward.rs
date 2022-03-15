@@ -76,7 +76,8 @@ fn test_remove_user_rps_by_farm(){
 
     call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()), 
+        deposit = 1
     ).assert_success();
 
     let farm_info = show_outdated_farminfo(&farming, farm_id.clone(), false);

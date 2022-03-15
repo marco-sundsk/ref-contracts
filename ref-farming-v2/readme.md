@@ -196,7 +196,7 @@ And get specific farmer's seed info as following:
 # show users whole seed info
 near view $REF_V2FARM list_user_seed_info '{"account_id": "farmer.testnet", "from_index": 0, "limit": 100}'
 # or to show only cd account info
-near view $REF_V2FARM list_user_cd_account '{"account_id": "farmer.testnet", "from_index": 0, "limit": 100}'
+near view $REF_V2FARM list_user_cd_account '{"account_id": "farmer.testnet"}'
 ```
 The response is like:
 ```bash
