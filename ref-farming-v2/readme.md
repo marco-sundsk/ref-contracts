@@ -16,7 +16,7 @@ There are three user roles:
     * Can claim farming reward to inner account,
     * Can withdraw assets from inner account to user wallet,
 - Operator (also can be a farmer)  
-    * create new farming,
+    * create new farm, cancel farm and clean farm,
     * adjust CD Account strategy,
     * adjust full slash per seed rate and default rate,
     * adjust minimum deposit per seed,
