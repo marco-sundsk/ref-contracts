@@ -41,6 +41,63 @@ To check a user's register status:
 near view $REF_V2FARM storage_balance_of '{"account_id": "farmer.testnet"}'
 ```
 
+### Get farms Info
+A farm has four possible states:
+```rust
+impl From<&SimpleFarmStatus> for String {
+    fn from(status: &SimpleFarmStatus) -> Self {
+        match *status {
+            SimpleFarmStatus::Created => { String::from("Created") },
+            SimpleFarmStatus::Running => { String::from("Running") },
+            SimpleFarmStatus::Ended => { String::from("Ended") },
+            SimpleFarmStatus::Cleared => { String::from("Cleared") },
+        }
+    }
+}
+```
+Note:
+- `Created`, No reward deposited yet, can be cancelled by operators,
+- `Running`, Has some reward deposited, and not consumed out yet,
+- `Ended`, All rewards are distributed out, can NOT recv more reward,
+- `Cleared`, aka `Outdated`, those ended farms which are moved out by operators,
+
+Anyone can 
+- list info of all valid farms and outdated farms,
+```bash
+near view $REF_V2FARM list_farms '{"from_index": 0, "limit": 100}'
+near view $REF_V2FARM list_outdated_farms '{"from_index": 0, "limit": 100}'
+```
+- get info of given valid farm and given outdated farm,
+```bash
+near view $REF_V2FARM get_farm '{"farm_id": "'$REF_EX'@5#0"}'
+near view $REF_V2FARM get_outdated_farm '{"farm_id": "'$REF_EX'@5#0"}'
+```
+- list info of all valid farms in given seed,
+```bash
+near view $REF_V2FARM list_farms_by_seed '{"seed_id": "'$REF_EX'@5"}'
+```
+the response is like:
+```bash
+{
+  farm_id: 'exchange.ref-dev.testnet@5#0',
+  farm_kind: 'SIMPLE_FARM',
+  farm_status: 'Running',
+  seed_id: 'exchange.ref-dev.testnet@5',
+  reward_token: 'ref.fakes.testnet',
+  start_at: 1646110346,
+  reward_per_session: '100000000000000000',
+  session_interval: 60,
+  total_reward: '4320000000000000000000',
+  cur_round: 19904,
+  last_round: 14263,
+  claimed_reward: '1302876176885920502170',
+  unclaimed_reward: '687523823114079497830',
+  beneficiary_reward: '1120500000000000000000'
+}
+```
+Note:
+- this info is same as v1 farming.
+
 ### Stake/Unstake Seed
 
 **Stake Non-CD-Account seed**
@@ -70,13 +127,15 @@ response is like:
     { enable: false, lock_sec: 0, power_reward_rate: 0 },
     { enable: false, lock_sec: 0, power_reward_rate: 0 },
     ...
-  ]
+  ],
+  seed_slash_rate: 2000
 }
 ```
 note:  
 - `enable` indicates this item is valid or not,
 - `lock_sec` means the minimum locking period (in sec) without slash,
 - `power_reward_rate` means the addtional power rate in bps,
+- `seed_slash_rate` the default seed-slash-rate for newly created seed,
 
 **Stake seed into a new CD-Account**
 ```bash
@@ -106,7 +165,33 @@ near call $REF_V2FARM withdraw_seed_from_cd_account '{"index": 0, "amount": "xxx
 note:  
 - index: CD-Account index, from 0-15 for each farmer.
 
-**View User Seed Info**
+**View Seed and User-Seed Info**
+From seed info, you can know specific seed slash rate:
+```bash
+# show given seed info
+near view $REF_V2FARM get_seed_info '{"seed_id": "'$REF_EX'@5"}'
+# or list all seed info
+near view $REF_V2FARM list_seeds_info '{"from_index": 0, "limit": 100}'
+```
+The response is like:
+```bash
+{
+  seed_id: 'exchange.ref-dev.testnet@5',
+  seed_type: 'MFT',
+  farms: [
+    'exchange.ref-dev.testnet@5#1',
+    ...
+    'exchange.ref-dev.testnet@5#31'
+  ],
+  next_index: 32,
+  amount: '1011600000000000000000000',
+  power: '1011709999756944444444444',
+  min_deposit: '1000000000000000000',
+  slash_rate: 1000
+}
+```
+
+And get specific farmer's seed info as following:
 ```bash
 # show users whole seed info
 near view $REF_V2FARM list_user_seed_info '{"account_id": "farmer.testnet", "from_index": 0, "limit": 100}'
