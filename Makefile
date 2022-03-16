@@ -22,6 +22,8 @@ test-farming: build-farming
 TEST_FILE ?= **
 LOGS ?=
 sandbox-farming:
+	cp res/*_release.wasm sandbox-tests/compiled-contracts/
+	cp res/test_token.wasm sandbox-tests/compiled-contracts/
 	cd sandbox-tests && \
 	NEAR_PRINT_LOGS=$(LOGS) npx near-workspaces-ava --timeout=2m __tests__/ref-farming-v2/$(TEST_FILE).ava.ts --verbose
 

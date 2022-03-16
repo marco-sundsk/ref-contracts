@@ -15,7 +15,7 @@ workspace.test('set_owner', async (test, { contract, owner, alice, bob }) => {
     owner_id: 'ref_owner.test.near',
     reward_count: '0',
     seed_count: '0',
-    version: '2.1.6',
+    version: '2.1.7',
   });
 
   await owner.call(contract, 'set_owner', { owner_id: alice }, { attachedDeposit: NEAR.from("1") });
@@ -37,5 +37,20 @@ workspace.test('set_owner', async (test, { contract, owner, alice, bob }) => {
   test.is(
     (await contract.view('get_metadata') as any).owner_id,
     owner.accountId,
+  );
+});
+
+workspace.test('manage_operators', async (test, { contract, owner, alice, bob }) => {
+
+  await owner.call(contract, 'extend_operators', { operators: [alice, bob] }, { attachedDeposit: NEAR.from("1") });
+  test.deepEqual(
+    (await contract.view('get_metadata') as any).operators,
+    [alice.accountId, bob.accountId],
+  );
+
+  await owner.call(contract, 'remove_operators', {operators: [bob]}, {attachedDeposit: NEAR.from("1")});
+  test.deepEqual(
+    (await contract.view('get_metadata') as any).operators,
+    [alice.accountId],
   );
 });
