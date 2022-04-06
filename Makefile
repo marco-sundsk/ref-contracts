@@ -16,7 +16,20 @@ build-farming:
 	$(call setup_builder,${FARMING_BUILDER_NAME})
 	
 test-farming: build-farming
+<<<<<<< HEAD
+	cd ${FARMING_DIR} && \
+	RUSTFLAGS='-C link-arg=-s' cargo test
+=======
 	cd ${FARMING_DIR} && RUSTFLAGS='-C link-arg=-s' cargo test
+>>>>>>> main
+
+TEST_FILE ?= **
+LOGS ?=
+sandbox-farming:
+	cp res/*_release.wasm sandbox-tests/compiled-contracts/
+	cp res/test_token.wasm sandbox-tests/compiled-contracts/
+	cd sandbox-tests && \
+	NEAR_PRINT_LOGS=$(LOGS) npx near-workspaces-ava --timeout=2m __tests__/ref-farming-v2/$(TEST_FILE).ava.ts --verbose
 
 build-exchange:
 	$(call create_builder,${EXCHANGE_BUILDER_NAME},${EXCHANGE_DIR})
@@ -24,7 +37,12 @@ build-exchange:
 	$(call setup_builder,${EXCHANGE_BUILDER_NAME})
 	
 test-exchange: build-exchange
+<<<<<<< HEAD
+	cd ${EXCHANGE_DIR} && \
+	RUSTFLAGS='-C link-arg=-s' cargo test
+=======
 	cd ${EXCHANGE_DIR} && RUSTFLAGS='-C link-arg=-s' cargo test
+>>>>>>> main
 
 res:
 	mkdir -p res

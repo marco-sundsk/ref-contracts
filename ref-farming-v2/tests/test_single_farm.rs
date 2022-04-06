@@ -320,7 +320,8 @@ fn single_farm_startat_0() {
     ).assert_success();
     let out_come = call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()), 
+        deposit = 1
     );
     assert!(!out_come.is_ok());
     let ex_status = out_come.status();
@@ -380,7 +381,8 @@ fn single_farm_startat_0() {
     assert_eq!(unclaim.0, to_yocto("0.5"));
     let out_come = call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()),
+        deposit = 1
     );
     out_come.assert_success();
     // assert_eq!(Value::Bool(true), out_come.unwrap_json_value());
@@ -584,7 +586,8 @@ fn single_farm_startat_180() {
     ).assert_success();
     let out_come = call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()),
+        deposit = 1
     );
     out_come.assert_success();
     // assert_eq!(Value::Bool(true), out_come.unwrap_json_value());
@@ -940,7 +943,8 @@ fn single_farm_cd_account() {
     ).assert_success();
     let out_come = call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()),
+        deposit = 1
     );
     // out_come.assert_success();
     assert!(!out_come.is_ok());
@@ -1004,7 +1008,8 @@ fn single_farm_cd_account() {
     assert_eq!(unclaim.0, to_yocto("0.5"));
     let out_come = call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()),
+        deposit = 1
     );
     out_come.assert_success();
     // assert_eq!(Value::Bool(true), out_come.unwrap_json_value());

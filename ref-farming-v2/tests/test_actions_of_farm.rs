@@ -103,24 +103,28 @@ fn test_force_clean_farm() {
 
     assert_err!(call!(
         farmer1,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()),
+        deposit = 1
     ), "ERR_NOT_ALLOWED");
 
     assert_err!(call!(
         owner,
-        farming.force_clean_farm("random".to_string())
+        farming.force_clean_farm("random".to_string()),
+        deposit = 1
     ), "E41: farm not exist");
 
     assert_err!(call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()),
+        deposit = 1
     ), "Farm can NOT be removed now");
 
     //Fast forward to DEFAULT_FARM_EXPIRE_SEC without any reward
     root.borrow_runtime_mut().cur_block.block_timestamp += to_nano(3600 * 24 * 30);
     assert_err!(call!(
         owner,
-        farming.force_clean_farm(format!("{}@0#0", pool.account_id()))
+        farming.force_clean_farm(format!("{}@0#0", pool.account_id())),
+        deposit = 1
     ), "Farm can NOT be removed now");
 
     //add reward
@@ -142,7 +146,8 @@ fn test_force_clean_farm() {
     root.borrow_runtime_mut().cur_block.block_timestamp += to_nano(60 * 11);
     assert_err!(call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()), 
+        deposit = 1
     ), "Farm can NOT be removed now");
 
     root.borrow_runtime_mut().cur_block.block_timestamp += to_nano(3600 * 24 * 30);
@@ -156,7 +161,8 @@ fn test_force_clean_farm() {
     ).assert_success();
     call!(
         owner,
-        farming.force_clean_farm(farm_id.clone())
+        farming.force_clean_farm(farm_id.clone()), 
+        deposit = 1
     ).assert_success();
     assert_eq!(show_farms_by_seed(&farming, seed_id.clone(), false).len(), 0);
     assert_eq!(show_outdated_farms(&farming, false).len(), 1);
@@ -188,12 +194,14 @@ fn test_cancel_farm() {
 
     assert_err!(call!(
         farmer1,
-        farming.cancel_farm(farm_id.clone())
+        farming.cancel_farm(farm_id.clone()), 
+        deposit = 1
     ), "ERR_NOT_ALLOWED");
 
     assert_err!(call!(
         owner,
-        farming.cancel_farm("random".to_string())
+        farming.cancel_farm("random".to_string()), 
+        deposit = 1
     ), "E41: farm not exist");
 
     //add reward
@@ -215,13 +223,15 @@ fn test_cancel_farm() {
     root.borrow_runtime_mut().cur_block.block_timestamp += to_nano(60 * 11);
     assert_err!(call!(
         owner,
-        farming.cancel_farm(farm_id.clone())
+        farming.cancel_farm(farm_id.clone()), 
+        deposit = 1
     ), "This farm can NOT be cancelled");
 
     root.borrow_runtime_mut().cur_block.block_timestamp += to_nano(3600 * 24 * 30);
     assert_err!(call!(
         owner,
-        farming.cancel_farm(farm_id.clone())
+        farming.cancel_farm(farm_id.clone()), 
+        deposit = 1
     ), "This farm can NOT be cancelled");
 
     call!(
@@ -245,7 +255,8 @@ fn test_cancel_farm() {
     ).assert_success();
     call!(
         farmer1,
-        farming.cancel_farm(format!("{}@0#1", pool.account_id()))
+        farming.cancel_farm(format!("{}@0#1", pool.account_id())), 
+        deposit = 1
     ).assert_success();
     assert_eq!(show_farms_by_seed(&farming, seed_id.clone(), false).len(), 1);
     assert_eq!(show_outdated_farms(&farming, false).len(), 0);

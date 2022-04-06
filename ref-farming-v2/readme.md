@@ -16,7 +16,7 @@ There are three user roles:
     * Can claim farming reward to inner account,
     * Can withdraw assets from inner account to user wallet,
 - Operator (also can be a farmer)  
-    * create new farming,
+    * create new farm, cancel farm and clean farm,
     * adjust CD Account strategy,
     * adjust full slash per seed rate and default rate,
     * adjust minimum deposit per seed,
@@ -40,6 +40,63 @@ To check a user's register status:
 ```bash
 near view $REF_V2FARM storage_balance_of '{"account_id": "farmer.testnet"}'
 ```
+
+### Get farms Info
+A farm has four possible states:
+```rust
+impl From<&SimpleFarmStatus> for String {
+    fn from(status: &SimpleFarmStatus) -> Self {
+        match *status {
+            SimpleFarmStatus::Created => { String::from("Created") },
+            SimpleFarmStatus::Running => { String::from("Running") },
+            SimpleFarmStatus::Ended => { String::from("Ended") },
+            SimpleFarmStatus::Cleared => { String::from("Cleared") },
+        }
+    }
+}
+```
+Note:
+- `Created`, No reward deposited yet, can be cancelled by operators,
+- `Running`, Has some reward deposited, and not consumed out yet,
+- `Ended`, All rewards are distributed out, can NOT recv more reward,
+- `Cleared`, aka `Outdated`, those ended farms which are moved out by operators,
+
+Anyone can 
+- list info of all valid farms and outdated farms,
+```bash
+near view $REF_V2FARM list_farms '{"from_index": 0, "limit": 100}'
+near view $REF_V2FARM list_outdated_farms '{"from_index": 0, "limit": 100}'
+```
+- get info of given valid farm and given outdated farm,
+```bash
+near view $REF_V2FARM get_farm '{"farm_id": "'$REF_EX'@5#0"}'
+near view $REF_V2FARM get_outdated_farm '{"farm_id": "'$REF_EX'@5#0"}'
+```
+- list info of all valid farms in given seed,
+```bash
+near view $REF_V2FARM list_farms_by_seed '{"seed_id": "'$REF_EX'@5"}'
+```
+the response is like:
+```bash
+{
+  farm_id: 'exchange.ref-dev.testnet@5#0',
+  farm_kind: 'SIMPLE_FARM',
+  farm_status: 'Running',
+  seed_id: 'exchange.ref-dev.testnet@5',
+  reward_token: 'ref.fakes.testnet',
+  start_at: 1646110346,
+  reward_per_session: '100000000000000000',
+  session_interval: 60,
+  total_reward: '4320000000000000000000',
+  cur_round: 19904,
+  last_round: 14263,
+  claimed_reward: '1302876176885920502170',
+  unclaimed_reward: '687523823114079497830',
+  beneficiary_reward: '1120500000000000000000'
+}
+```
+Note:
+- this info is same as v1 farming.
 
 ### Stake/Unstake Seed
 
@@ -70,13 +127,15 @@ response is like:
     { enable: false, lock_sec: 0, power_reward_rate: 0 },
     { enable: false, lock_sec: 0, power_reward_rate: 0 },
     ...
-  ]
+  ],
+  seed_slash_rate: 2000
 }
 ```
 note:  
 - `enable` indicates this item is valid or not,
 - `lock_sec` means the minimum locking period (in sec) without slash,
 - `power_reward_rate` means the addtional power rate in bps,
+- `seed_slash_rate` the default seed-slash-rate for newly created seed,
 
 **Stake seed into a new CD-Account**
 ```bash
@@ -106,12 +165,38 @@ near call $REF_V2FARM withdraw_seed_from_cd_account '{"index": 0, "amount": "xxx
 note:  
 - index: CD-Account index, from 0-15 for each farmer.
 
-**View User Seed Info**
+**View Seed and User-Seed Info**
+From seed info, you can know specific seed slash rate:
+```bash
+# show given seed info
+near view $REF_V2FARM get_seed_info '{"seed_id": "'$REF_EX'@5"}'
+# or list all seed info
+near view $REF_V2FARM list_seeds_info '{"from_index": 0, "limit": 100}'
+```
+The response is like:
+```bash
+{
+  seed_id: 'exchange.ref-dev.testnet@5',
+  seed_type: 'MFT',
+  farms: [
+    'exchange.ref-dev.testnet@5#1',
+    ...
+    'exchange.ref-dev.testnet@5#31'
+  ],
+  next_index: 32,
+  amount: '1011600000000000000000000',
+  power: '1011709999756944444444444',
+  min_deposit: '1000000000000000000',
+  slash_rate: 1000
+}
+```
+
+And get specific farmer's seed info as following:
 ```bash
 # show users whole seed info
 near view $REF_V2FARM list_user_seed_info '{"account_id": "farmer.testnet", "from_index": 0, "limit": 100}'
 # or to show only cd account info
-near view $REF_V2FARM list_user_cd_account '{"account_id": "farmer.testnet", "from_index": 0, "limit": 100}'
+near view $REF_V2FARM list_user_cd_account '{"account_id": "farmer.testnet"}'
 ```
 The response is like:
 ```bash
@@ -174,19 +259,55 @@ near call $REF_FARM withdraw_reward '{"token_id": "xxx", "amount": "100"}' --acc
 
 **Create New Farm**
 ```bash
-near call $REF_V2FARM create_simple_farm '{"terms": {"seed_id": "xxx", "reward_token": "xxx", "start_at": 0, "reward_per_session": "nnn", "session_interval": 60}}' --account_id=op.testnet --deposit=0.01 || true
+near call $REF_V2FARM create_simple_farm '{"terms": {"seed_id": "xxx", "reward_token": "xxx", "start_at": 0, "reward_per_session": "nnn", "session_interval": 60}}' --account_id=op.testnet --deposit=0.01
 ```
 Note:  
 - `start_at` the distribution start timestamp or 0 means to start distribute as long as the reward token is deposited into the farm,
 - `session_interval` the interval secs between distribution,
+- the `deposit` amount is to cover farm storage and 0.01 is enough,
 - will return farm_id of the created farm,
+- remeber to register farm contract to both seed token and reward token contract
+
+**Cancel Farm**
+
+```bash
+near call $REF_V2FARM cancel_farm '{"farm_id": "xxxx"}' --account_id=op.testnet
+```
+Note:
+- Only those farms haven't got any reward deposited can be cancelled.
+
+**Clean Farm**
+
+```bash
+near call $REF_V2FARM force_clean_farm '{"farm_id": "xxxx"}' --account_id=op.testnet
+```
+Note:
+- Only those farms have been ended more than `farm_expire_sec` secs can be cleaned,
+- the `farm_expire_sec` can only be adjust by owner of the contract.
+- can get current `farm_expire_sec` through `get_metadata` view method.
+```bash
+near view $REF_V2FARM get_metadata
+# possible response:
+{
+  version: '2.1.6',
+  owner_id: 'ref-dev.testnet',
+  operators: [],
+  farmer_count: '3',
+  farm_count: '32',
+  seed_count: '1',
+  reward_count: '9',
+  farm_expire_sec: 2592000
+}
+```
 
 **Modify Seed Minimum Amount of Deposit**
+
 ```bash
 near call $REF_V2FARM modify_seed_min_deposit '{"seed_id": "xxx", "min_deposit": "nnn"}' --account_id=op.testnet --depositYocto=1
 ```
 
 **Modify Default Seed Slash Rate**
+
 ```bash
 near call $REF_V2FARM modify_seed_slash_rate '{"slash_rate": nnn}' --account_id=op.testnet --depositYocto=1
 ```
@@ -205,6 +326,35 @@ near call $REF_V2FARM modify_cd_strategy_item '{"index": n, "lock_sec": nnn, "po
 ```bash
 near call $REF_V2FARM withdraw_seed_slashed '{"seed_id": "xxx"}' --account_id=op.testnet --depositYocto=1
 ```
+
+### Owner Authority
+
+**Pass Owner Authority**
+```bash
+near call $REF_V2FARM set_owner '{"owner_id": "xxx"}' --account_id=owner.testnet --depositYocto=1
+```
+
+**Manage Operators**
+```bash
+near call $REF_V2FARM extend_operators '{"operators": ["xxx", "yyy"]}' --account_id=owner.testnet --depositYocto=1
+near call $REF_V2FARM remove_operators '{"operators": ["xxx", "yyy"]}' --account_id=owner.testnet --depositYocto=1
+```
+
+**Adjust Farm Expire Seconds**
+```bash
+near call $REF_V2FARM modify_default_farm_expire_sec '{"farm_expire_sec": 2592000}' --account_id=owner.testnet --depositYocto=1
+```
+
+**Refund Seed Lostfound**  
+
+owner help to return those who lost seed when withdraw.
+```bash
+near call $REF_V2FARM return_seed_lostfound '{"sender_id": "xxx", "seed_id": "yyy", "amount": "nnn"}' --account_id=owner.testnet --depositYocto=1
+```
+Note:  
+- It's owner's responsibility to verify amount and seed id before calling,
+- Better to ensure the seed token has register the user `sender_id`.
+
 
 ## Developer Manual
 ---

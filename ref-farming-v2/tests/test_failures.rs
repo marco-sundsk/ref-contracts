@@ -774,7 +774,7 @@ fn failure_e42_when_force_clean_farm() {
     let out_come = call!(
         owner,
         farming.force_clean_farm("swap".to_string().clone()),
-        deposit = 0
+        deposit = 1
     );
     let ex_status = format!("{:?}", out_come.promise_errors()[0].as_ref().unwrap().status());
     assert!(ex_status.contains("E41: farm not exist"));

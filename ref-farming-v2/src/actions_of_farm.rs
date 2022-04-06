@@ -1,5 +1,5 @@
 use crate::errors::*;
-use crate::utils::{gen_farm_id, parse_farm_id, MAX_FARM_NUM, MIN_SEED_DEPOSIT};
+use crate::utils::{gen_farm_id, parse_farm_id, MAX_FARM_NUM, MIN_SEED_DEPOSIT, assert_one_yocto};
 use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::{env, near_bindgen};
@@ -24,13 +24,17 @@ impl Contract {
     }
 
     /// force clean, only those farm_expire_sec after ended can be clean
+    #[payable]
     pub fn force_clean_farm(&mut self, farm_id: String) {
+        assert_one_yocto();
         assert!(self.is_owner_or_operators(), "ERR_NOT_ALLOWED");
         self.internal_remove_farm_by_farm_id(&farm_id)
     }
 
     /// Only a farm without any reward deposited can be cancelled
+    #[payable]
     pub fn cancel_farm(&mut self, farm_id: String) {
+        assert_one_yocto();
         assert!(self.is_owner_or_operators(), "ERR_NOT_ALLOWED");
         self.internal_cancel_farm(&farm_id)
     }

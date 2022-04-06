@@ -8,8 +8,8 @@ use near_sdk::{near_bindgen, AccountId};
 
 use crate::farm_seed::SeedInfo;
 use crate::farmer::CDAccount;
-use crate::utils::parse_farm_id;
 use crate::simple_farm::DENOM;
+use crate::utils::parse_farm_id;
 use crate::*;
 
 use uint::construct_uint;
@@ -66,9 +66,7 @@ impl From<&Farm> for FarmInfo {
             Farm::SimpleFarm(farm) => {
                 if let Some(dis) = farm.try_distribute(&DENOM) {
                     let mut farm_status: String = (&farm.status).into();
-                    if farm_status == "Running".to_string()
-                        && dis.undistributed == 0
-                    {
+                    if farm_status == "Running".to_string() && dis.undistributed == 0 {
                         farm_status = "Ended".to_string();
                     }
                     Self {
@@ -98,7 +96,7 @@ impl From<&Farm> for FarmInfo {
                         start_at: farm.terms.start_at.into(),
                         reward_per_session: farm.terms.reward_per_session.into(),
                         session_interval: farm.terms.session_interval.into(),
-    
+
                         total_reward: farm.amount_of_reward.into(),
                         cur_round: farm.last_distribution.rr.into(),
                         last_round: farm.last_distribution.rr.into(),
@@ -107,7 +105,7 @@ impl From<&Farm> for FarmInfo {
                         unclaimed_reward: farm.last_distribution.unclaimed.into(),
                         beneficiary_reward: farm.amount_of_beneficiary.into(),
                     }
-                }                
+                }
             }
         }
     }
@@ -119,7 +117,7 @@ pub struct UserSeedInfo {
     pub seed_id: SeedId,
     pub amount: U128,
     pub power: U128,
-    pub cds: Vec<CDAccountInfo>
+    pub cds: Vec<CDAccountInfo>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -130,12 +128,12 @@ pub struct CDAccountInfo {
     pub seed_amount: U128,
     pub seed_power: U128,
     pub begin_sec: u32,
-    pub end_sec: u32
+    pub end_sec: u32,
 }
 
 impl From<CDAccount> for CDAccountInfo {
     fn from(cd_account: CDAccount) -> Self {
-        CDAccountInfo{
+        CDAccountInfo {
             cd_account_id: 0,
             seed_id: cd_account.seed_id.clone(),
             seed_amount: cd_account.seed_amount.into(),
@@ -148,7 +146,7 @@ impl From<CDAccount> for CDAccountInfo {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(crate = "near_sdk::serde")]
-pub struct CDStakeItemInfo{
+pub struct CDStakeItemInfo {
     pub enable: bool,
     pub lock_sec: u32,
     pub power_reward_rate: u32,
@@ -163,13 +161,16 @@ pub struct CDStrategyInfo {
 
 impl From<&CDStrategy> for CDStrategyInfo {
     fn from(cd_strategy: &CDStrategy) -> Self {
-        CDStrategyInfo{
-            stake_strategy: cd_strategy.stake_strategy.iter().map(|item|
-                CDStakeItemInfo {
+        CDStrategyInfo {
+            stake_strategy: cd_strategy
+                .stake_strategy
+                .iter()
+                .map(|item| CDStakeItemInfo {
                     lock_sec: item.lock_sec,
                     power_reward_rate: item.power_reward_rate,
                     enable: item.enable,
-                }).collect(),
+                })
+                .collect(),
             seed_slash_rate: cd_strategy.seed_slash_rate,
         }
     }
@@ -177,22 +178,34 @@ impl From<&CDStrategy> for CDStrategyInfo {
 
 impl Contract {
     fn user_seed_info(&self, farmer: &VersionedFarmer, seed_id: &SeedId) -> UserSeedInfo {
-        UserSeedInfo{
+        let user_cds: Vec<CDAccountInfo> = self
+            .user_cd_account(farmer)
+            .into_iter()
+            .filter(|x| x.seed_id == seed_id.clone())
+            .collect();
+        let seed_in_cds = user_cds.iter().fold(0_u128, |acc, x| acc + x.seed_amount.0);
+        let seed_free = farmer.get_ref().seed_amounts.get(seed_id).unwrap_or(&0);
+        UserSeedInfo {
             seed_id: seed_id.clone(),
-            amount: farmer.get_ref().seed_amounts.get(seed_id).map_or(U128(0), |&v| {
-                let mut cd_amount_total = 0;
-                for f in farmer.get_ref().cd_accounts.iter(){
-                    cd_amount_total += f.seed_amount;
-                }
-                U128(v + cd_amount_total)
-            }),
-            power: farmer.get_ref().seed_powers.get(seed_id).map_or(U128(0), |&v| U128(v)),
-            cds: farmer.get_ref().cd_accounts.iter().enumerate().map(|(index, cd_account)| {
-                let mut cd_account_info: CDAccountInfo = cd_account.into();
+            amount: (seed_free + seed_in_cds).into(),
+            power: farmer
+                .get_ref()
+                .seed_powers
+                .get(seed_id)
+                .map_or(U128(0), |&v| U128(v)),
+            cds: user_cds,
+        }
+    }
+
+    fn user_cd_account(&self, farmer: &VersionedFarmer) -> Vec<CDAccountInfo> {
+        (0..farmer.get_ref().cd_accounts.len())
+            .map(|index| {
+                let mut cd_account_info: CDAccountInfo =
+                    farmer.get_ref().cd_accounts.get(index).unwrap().into();
                 cd_account_info.cd_account_id = index as u32;
                 cd_account_info
-            }).collect()
-        }
+            })
+            .collect()
     }
 }
 
@@ -233,9 +246,7 @@ impl Contract {
         let keys = self.data().farms.keys_as_vector();
 
         (from_index..std::cmp::min(from_index + limit, keys.len()))
-            .map(|index| 
-                (&self.data().farms.get(&keys.get(index).unwrap()).unwrap()).into()
-            )
+            .map(|index| (&self.data().farms.get(&keys.get(index).unwrap()).unwrap()).into())
             .collect()
     }
 
@@ -243,9 +254,14 @@ impl Contract {
         let keys = self.data().outdated_farms.keys_as_vector();
 
         (from_index..std::cmp::min(from_index + limit, keys.len()))
-            .map(|index| 
-                (&self.data().outdated_farms.get(&keys.get(index).unwrap()).unwrap()).into()
-            )
+            .map(|index| {
+                (&self
+                    .data()
+                    .outdated_farms
+                    .get(&keys.get(index).unwrap())
+                    .unwrap())
+                    .into()
+            })
             .collect()
     }
 
@@ -254,9 +270,7 @@ impl Contract {
             .get_ref()
             .farms
             .iter()
-            .map(|farm_id| 
-                (&self.data().farms.get(&farm_id).unwrap()).into()
-            )
+            .map(|farm_id| (&self.data().farms.get(&farm_id).unwrap()).into())
             .collect()
     }
 
@@ -320,7 +334,11 @@ impl Contract {
             if let Some(farm) = self.data().farms.get(&farm_id) {
                 let reward_amount = farm.view_farmer_unclaimed_reward(
                     &farmer.get_ref().get_rps(&farm.get_farm_id()),
-                    farmer.get_ref().seed_powers.get(&seed_id).unwrap_or(&0_u128),
+                    farmer
+                        .get_ref()
+                        .seed_powers
+                        .get(&seed_id)
+                        .unwrap_or(&0_u128),
                     &farm_seed.get_ref().total_seed_power,
                 );
                 reward_amount.into()
@@ -404,42 +422,43 @@ impl Contract {
         }
     }
 
-    pub fn get_user_seed_info(&self, account_id: ValidAccountId, seed_id: SeedId) -> Option<UserSeedInfo> {
-        if let Some(farmer) = self.get_farmer_wrapped(account_id.as_ref()){
+    pub fn get_user_seed_info(
+        &self,
+        account_id: ValidAccountId,
+        seed_id: SeedId,
+    ) -> Option<UserSeedInfo> {
+        if let Some(farmer) = self.get_farmer_wrapped(account_id.as_ref()) {
             Some(self.user_seed_info(&farmer, &seed_id))
-        }else{
+        } else {
             None
         }
     }
 
-    pub fn list_user_seed_info(&self, account_id: ValidAccountId, from_index: u64, limit: u64) -> HashMap<SeedId, UserSeedInfo> {
-        if let Some(farmer) = self.get_farmer_wrapped(account_id.as_ref()){
+    pub fn list_user_seed_info(
+        &self,
+        account_id: ValidAccountId,
+        from_index: u64,
+        limit: u64,
+    ) -> HashMap<SeedId, UserSeedInfo> {
+        if let Some(farmer) = self.get_farmer_wrapped(account_id.as_ref()) {
             let keys = self.data().seeds.keys_as_vector();
-        (from_index..std::cmp::min(from_index + limit, keys.len()))
-            .map(|index| {
-                let seed_id = keys.get(index).unwrap();
-                (
-                    seed_id.clone(),
-                    self.user_seed_info(&farmer, &seed_id),
-                )
-            })
-            .collect()
-        }else{
+            (from_index..std::cmp::min(from_index + limit, keys.len()))
+                .map(|index| {
+                    let seed_id = keys.get(index).unwrap();
+                    (seed_id.clone(), self.user_seed_info(&farmer, &seed_id))
+                })
+                .collect()
+        } else {
             HashMap::new()
         }
     }
 
-    pub fn list_user_cd_account(&self, account_id: ValidAccountId, from_index: u64, limit: u64) -> Vec<CDAccountInfo> {
+    pub fn list_user_cd_account(
+        &self,
+        account_id: ValidAccountId,
+    ) -> Vec<CDAccountInfo> {
         let farmer = self.get_farmer(&account_id.into());
-
-        (from_index..std::cmp::min(from_index + limit, farmer.get_ref().cd_accounts.len()))
-            .map(|index| {
-                    let mut cd_account_info: CDAccountInfo = farmer.get_ref().cd_accounts.get(index).unwrap().into();
-                    cd_account_info.cd_account_id = index as u32;
-                    cd_account_info
-                }
-            )
-            .collect()
+        self.user_cd_account(&farmer)
     }
 
     pub fn get_cd_strategy(&self) -> CDStrategyInfo {
@@ -454,7 +473,11 @@ impl Contract {
             .map(|index| {
                 (
                     keys.get(index).unwrap(),
-                    self.data().seeds_slashed.get(&keys.get(index).unwrap()).unwrap().into()
+                    self.data()
+                        .seeds_slashed
+                        .get(&keys.get(index).unwrap())
+                        .unwrap()
+                        .into(),
                 )
             })
             .collect()
@@ -468,7 +491,11 @@ impl Contract {
             .map(|index| {
                 (
                     keys.get(index).unwrap(),
-                    self.data().seeds_lostfound.get(&keys.get(index).unwrap()).unwrap().into()
+                    self.data()
+                        .seeds_lostfound
+                        .get(&keys.get(index).unwrap())
+                        .unwrap()
+                        .into(),
                 )
             })
             .collect()
