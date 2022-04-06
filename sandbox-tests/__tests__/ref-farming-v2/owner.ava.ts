@@ -48,9 +48,29 @@ workspace.test('manage_operators', async (test, { contract, owner, alice, bob })
     [alice.accountId, bob.accountId],
   );
 
-  await owner.call(contract, 'remove_operators', {operators: [bob]}, {attachedDeposit: NEAR.from("1")});
+  await owner.call(contract, 'remove_operators', { operators: [bob] }, { attachedDeposit: NEAR.from("1") });
   test.deepEqual(
     (await contract.view('get_metadata') as any).operators,
     [alice.accountId],
+  );
+});
+
+workspace.test('adjust_farm_expire_sec', async (test, { contract, owner, alice, bob }) => {
+
+  assertFailure(
+    test,
+    alice.call(
+      contract, 
+      'modify_default_farm_expire_sec', 
+      {farm_expire_sec: 2592001}, 
+      {attachedDeposit: NEAR.from("1")}
+    ),
+    'NOT_ALLOWED',
+  );
+
+  await owner.call(contract, 'modify_default_farm_expire_sec', { farm_expire_sec: 2592001 }, { attachedDeposit: NEAR.from("1") });
+  test.is(
+    (await contract.view('get_metadata') as any).farm_expire_sec,
+    2592001,
   );
 });
