@@ -1603,4 +1603,37 @@ mod tests {
         assert_eq!(20, contract.metadata().exchange_fee);
         assert_eq!(50, contract.metadata().referral_fee);
     }
+
+    #[test]
+    fn test_immunefi() {
+        let (mut context, mut contract) = setup_contract();
+        deposit_tokens(
+            &mut context,
+            &mut contract,
+            accounts(3),
+            vec![
+                (accounts(1), to_yocto("100")),
+                (accounts(2), to_yocto("100")),
+            ],
+        );
+        testing_env!(context
+            .predecessor_account_id(accounts(3))
+            .attached_deposit(to_yocto("1"))
+            .build());
+        let id = contract.add_simple_pool(vec![accounts(1), accounts(2)], 25);
+        testing_env!(context.attached_deposit(to_yocto("0.0007")).build());
+        contract.add_liquidity(id, vec![U128(1), U128(1)], None);
+        assert_eq!(contract.get_pool(0).amounts, vec![U128(1), U128(1)]);
+        assert_eq!(contract.get_pool(0).shares_total_supply.0, to_yocto("1"));
+        testing_env!(context.attached_deposit(1).build());
+        contract.remove_liquidity(id, U128(to_yocto("1") - 1), vec![U128(0), U128(0)]);
+        println!("{:?}", contract.get_pool(0));
+        assert_eq!(contract.get_pool(0).amounts, vec![U128(1), U128(1)]);
+        assert_eq!(contract.get_pool(0).shares_total_supply.0, 1);
+
+        testing_env!(context.attached_deposit(to_yocto("0.0007")).build());
+        contract.add_liquidity(id, vec![U128(1), U128(100)], None);
+        assert_eq!(contract.get_pool(0).amounts, vec![U128(2), U128(2)]);
+        assert_eq!(contract.get_pool(0).shares_total_supply.0, 2);
+    }
 }
