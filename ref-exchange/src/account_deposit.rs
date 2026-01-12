@@ -433,6 +433,47 @@ impl Contract {
             }
         }
     }
+
+    /// Callback after `ft_transfer_call` completes during a withdrawal operation.
+    ///
+    /// Handles the result of a token transfer call by checking how much of the
+    /// transferred amount was actually used by the receiver. Any unused amount
+    /// is re-deposited back to the sender's account.
+    ///
+    /// # Arguments
+    /// * `token_id` - The token contract address that was transferred
+    /// * `sender_id` - The account that initiated the withdrawal
+    /// * `amount` - The total amount that was originally transferred
+    ///
+    /// # Returns
+    /// The amount that was successfully used by the receiver (total minus refunded)
+    #[private]
+    pub fn exchange_callback_post_ft_transfer_call_withdraw(
+        &mut self,
+        token_id: AccountId,
+        sender_id: AccountId,
+        amount: U128,
+    ) -> U128 {
+        assert_eq!(
+            env::promise_results_count(),
+            1,
+            "{}",
+            ERR25_CALLBACK_POST_WITHDRAW_INVALID
+        );
+        let remain_amount = match near_sdk::promise_result_as_success() {
+            Some(result_bytes) => {
+                let used_amount = near_sdk::serde_json::from_slice::<U128>(&result_bytes).unwrap();
+                amount.0.saturating_sub(used_amount.0)
+            }
+            None => amount.0,
+        };
+        if remain_amount > 0 {
+            self.internal_handle_fail_in_withdraw_callback(&sender_id, &token_id, remain_amount);
+            amount.0.saturating_sub(remain_amount).into()
+        } else {
+            amount
+        }
+    }
 }
 
 impl Contract {
@@ -642,7 +683,7 @@ impl Contract {
             1,
             GAS_FOR_FT_TRANSFER_CALL + extra_gas,
         )
-        .then(ext_self::exchange_callback_post_withdraw(
+        .then(ext_self::exchange_callback_post_ft_transfer_call_withdraw(
             token_id.clone(),
             sender_id.clone(),
             U128(amount),

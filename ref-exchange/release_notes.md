@@ -1,5 +1,11 @@
 # Release Notes
 
+### Version 1.9.18
+```
+AqbqDX2n5AJ6zh7VEL7R49yPejgAE5YUySxWM6RepTiX
+```
+1. support partial-used in ft_transfer_call.
+
 ### Version 1.9.17
 ```
 DM88T8C9coPUGGXVLA7MjtB4PSGupNTtBdrq2wLwfdRS

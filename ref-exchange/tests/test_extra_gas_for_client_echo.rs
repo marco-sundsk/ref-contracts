@@ -65,6 +65,18 @@ fn boost_farming() -> AccountId {
     "boost_farming".to_string()
 }
 
+fn get_deposit(pool: &ContractAccount<ref_exchange::ContractContract>, account_id: &AccountId, token_id: &AccountId) -> u128 {
+    view!(pool.get_deposit(to_va(account_id.clone()), to_va(token_id.clone())))
+        .unwrap_json::<U128>()
+        .0
+}
+
+fn get_lostfound_token(pool: &ContractAccount<ref_exchange::ContractContract>, account_id: &AccountId, token_id: &AccountId) -> u128 {
+    view!(pool.get_lostfound_token(to_va(account_id.clone()), to_va(token_id.clone())))
+        .unwrap_json::<U128>()
+        .0
+}
+
 #[test]
 fn test_extra_gas() {
     let (root, owner, pool, token1, token2, _) = setup_pool_with_liquidity();
@@ -157,6 +169,9 @@ fn test_extra_gas() {
     out_come.assert_success();
     assert_eq!(*get_logs(&out_come).get(4).unwrap(), "prepaid gas: 10000000000000".to_string());
 
+    // Currently owner's internal account has zero token2 balance
+    assert_eq!(get_deposit(&pool, &owner.account_id(), &token2.account_id()), 0);
+
     // extra gas is less than needed, cause an error.
     let out_come = do_swap(
         &mock_boost_farming.user_account,
@@ -171,5 +186,52 @@ fn test_extra_gas() {
     println!("logs: {:#?}", get_logs(&out_come));
     assert_eq!(get_error_count(&out_come), 1);
     assert_eq!(*get_logs(&out_come).get(4).unwrap(), "prepaid gas: 5000000000000".to_string());
-    
+
+    // Since exchange contract has free NEAR less than 100 NEAR, lostfound goes to owner's internal account
+    assert_eq!(get_deposit(&pool, &owner.account_id(), &token2.account_id()), 1279649495588784925203306);
+
+    // Transfer 100 NEAR to exchange contract
+    root.transfer(pool.account_id(), 100 * 10u128.pow(24)).assert_success();
+    // Currently boost_farming has no token2 lostfound
+    assert_eq!(get_lostfound_token(&pool, &boost_farming(), &token2.account_id()), 0);
+
+    // extra gas is less than needed, cause an error.
+    let out_come = do_swap(
+        &mock_boost_farming.user_account,
+        &token1,
+        vec![action.clone()],
+        to_yocto("1"),
+        Some("\\\"Free\\\"".to_string()),
+        None,
+        Some(5_u32),
+    );
+    out_come.assert_success();
+    // Since exchange contract now has free NEAR greater than 100 NEAR, lostfound goes to boost_farming account
+    assert_eq!(get_lostfound_token(&pool, &boost_farming(), &token2.account_id()), 1097038324491189076795118);
+
+    // Register boost_farming's internal account in exchange contract
+    call!(
+        root,
+        pool.storage_deposit(Some(to_va(boost_farming())), None),
+        deposit = to_yocto("1")
+    )
+    .assert_success();
+
+    // Currently boost_farming's internal account has zero token2 balance
+    assert_eq!(get_deposit(&pool, &boost_farming(), &token2.account_id()), 0);
+
+    // extra gas is less than needed, cause an error.
+    let out_come = do_swap(
+        &mock_boost_farming.user_account,
+        &token1,
+        vec![action.clone()],
+        to_yocto("1"),
+        Some("\\\"Free\\\"".to_string()),
+        None,
+        Some(5_u32),
+    );
+    out_come.assert_success();
+
+    // Now boost_farming has an internal account, client-echo failed token2 goes to boost_farming's internal account
+    assert_eq!(get_deposit(&pool, &boost_farming(), &token2.account_id()), 950925035398263577151961);
 }

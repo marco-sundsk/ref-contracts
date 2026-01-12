@@ -90,6 +90,12 @@ pub trait RefExchange {
         sender_id: AccountId,
         amount: U128,
     );
+    fn exchange_callback_post_ft_transfer_call_withdraw(
+        &mut self,
+        token_id: AccountId,
+        sender_id: AccountId,
+        amount: U128,
+    );
     fn callback_on_shadow(
         &mut self,
         action: crate::account_deposit::ShadowActions,
